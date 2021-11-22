@@ -1,8 +1,19 @@
 import React, { useEffect, useState } from "react";
-import { View, StyleSheet, SafeAreaView, Dimensions } from "react-native";
+import {
+  View,
+  StyleSheet,
+  SafeAreaView,
+  Dimensions,
+  Text,
+  ScrollView,
+  Pressable,
+} from "react-native";
 import { BlurView } from "expo-blur";
 import Voice from "@react-native-voice/voice";
+import axios from "axios";
+
 import {
+  ActivityIndicator,
   Button,
   Card,
   Headline,
@@ -19,6 +30,10 @@ import * as DocumentPicker from "expo-document-picker";
 
 const windowWidth = Dimensions.get("window").width;
 const windowHeight = Dimensions.get("window").height;
+
+interface IApiSurah {
+  ayah: string;
+}
 function HomeScreen({ navigation }: INavigation) {
   const [result, setResult] = useState("");
   const [isLoading, setLoading] = useState(false);
@@ -29,7 +44,10 @@ function HomeScreen({ navigation }: INavigation) {
   const [showModelDropDown, setShowModelDropDown] = useState(false);
   const [model, setModel] = useState<string>("");
   const [showSurahDropDown, setShowSurahDropDown] = useState(false);
-  const [surah, setSurah] = useState<string>("");
+  const [surah, setSurah] = useState<number>();
+  const [surahLoading, setSurahLoading] = useState(false);
+  const [isRecording, setisRecording] = useState(true);
+  const [apiSurah, setApiSurah] = useState<IApiSurah[]>([]);
   const thersholdList = [
     { label: "1", value: 1 },
     { label: "2", value: 2 },
@@ -43,11 +61,17 @@ function HomeScreen({ navigation }: INavigation) {
     { label: "Model 4", value: 4 },
   ];
   const surahList = [
+    { label: "Select Surah", value: 0 },
     { label: "1", value: 1 },
     { label: "2", value: 2 },
     { label: "3", value: 3 },
     { label: "4", value: 4 },
   ];
+  // const slectedSurah = apiSurah?.map((sur, index) => {
+  //   return (
+
+  //   );
+  // });
   // const [permission, askPermission, getPermission] = usePermissions(Permissions.AUDIO_RECORDING, { ask: true });
   useEffect(() => {
     Voice.onSpeechStart = onSpeechStartHandler;
@@ -58,6 +82,27 @@ function HomeScreen({ navigation }: INavigation) {
       Voice.destroy().then(Voice.removeAllListeners);
     };
   }, []);
+  React.useEffect(() => {
+    if (surah && surah != 0) {
+      setSurahLoading(true);
+      axios
+        .get(
+          `https://j3meoo7m7l.execute-api.us-east-2.amazonaws.com/dev/quran_data/${surah}`
+        )
+        .then(function (response) {
+          setisRecording(false);
+          const apiSurah: IApiSurah[] =
+            response.data.result[0]?.surah_details?.map((sur: any) => {
+              return { ayah: sur.ayah };
+            });
+          setSurahLoading(false);
+          setApiSurah(apiSurah);
+        })
+        .catch(function (error) {
+          console.log(error);
+        });
+    }
+  }, [surah]);
 
   const onSpeechStartHandler = (e: any) => {
     console.log("start handler==>>>", e);
@@ -70,6 +115,8 @@ function HomeScreen({ navigation }: INavigation) {
   const onSpeechResultsHandler = (e: any) => {
     let text = e.value[0];
     setResult(text);
+    setisRecording(true);
+    setApiSurah([]);
     console.log("speech result handler", e);
   };
 
@@ -99,7 +146,6 @@ function HomeScreen({ navigation }: INavigation) {
   };
   const pickDocument = async () => {
     let result = await DocumentPicker.getDocumentAsync({});
-    console.log(result.type);
     console.log(result);
   };
   const onMemorizeClick = () => {
@@ -107,108 +153,125 @@ function HomeScreen({ navigation }: INavigation) {
   };
   return (
     <Surface style={styles.container}>
-      <Headline style={styles.headingText}>Voice Recognition</Headline>
+      <ScrollView>
+        <Headline style={styles.headingText}>Voice Recognition</Headline>
 
-      <SafeAreaView style={styles.safeContainerStyle}>
-        <View style={[styles.flexRow]}>
-          <View style={styles.flexOne}>
-            <DropDown
-              label={"Thershold"}
-              mode={"flat"}
-              visible={showDropDown}
-              showDropDown={() => setShowDropDown(true)}
-              onDismiss={() => setShowDropDown(false)}
-              value={thershold}
-              setValue={setThershold}
-              list={thersholdList}
-            />
+        <SafeAreaView style={styles.safeContainerStyle}>
+          <View style={[styles.flexRow]}>
+            <View style={styles.flexOne}>
+              <DropDown
+                label={"Thershold"}
+                mode={"flat"}
+                visible={showDropDown}
+                showDropDown={() => setShowDropDown(true)}
+                onDismiss={() => setShowDropDown(false)}
+                value={thershold}
+                setValue={setThershold}
+                list={thersholdList}
+              />
+            </View>
+            <View style={styles.spacerHorizontalStyle} />
+            <View style={styles.flexOne}>
+              <DropDown
+                label={"Model"}
+                mode={"flat"}
+                visible={showModelDropDown}
+                showDropDown={() => setShowModelDropDown(true)}
+                onDismiss={() => setShowModelDropDown(false)}
+                value={model}
+                setValue={setModel}
+                list={modelList}
+              />
+            </View>
           </View>
-          <View style={styles.spacerHorizontalStyle} />
-          <View style={styles.flexOne}>
-            <DropDown
-              label={"Model"}
-              mode={"flat"}
-              visible={showModelDropDown}
-              showDropDown={() => setShowModelDropDown(true)}
-              onDismiss={() => setShowModelDropDown(false)}
-              value={model}
-              setValue={setModel}
-              list={modelList}
-            />
-          </View>
-        </View>
-        <View style={styles.spacerStyle} />
-        {recognitionMode === RecognitionMode.Recording ? (
-          <View>
-            <View style={[styles.flexRow]}>
-              <View style={styles.flexOne}>
-                <DropDown
-                  label={"Surah"}
-                  mode={"flat"}
-                  visible={showSurahDropDown}
-                  showDropDown={() => setShowSurahDropDown(true)}
-                  onDismiss={() => setShowSurahDropDown(false)}
-                  value={surah}
-                  setValue={setSurah}
-                  list={surahList}
-                />
+          <View style={styles.spacerStyle} />
+          {recognitionMode === RecognitionMode.Recording ? (
+            <View>
+              <View style={[styles.flexRow]}>
+                <View style={styles.flexOne}>
+                  <DropDown
+                    label={"Surah"}
+                    mode={"flat"}
+                    visible={showSurahDropDown}
+                    showDropDown={() => setShowSurahDropDown(true)}
+                    onDismiss={() => setShowSurahDropDown(false)}
+                    value={surah}
+                    setValue={setSurah}
+                    list={surahList}
+                  />
+                </View>
+              </View>
+              <View style={styles.spacerStyle} />
+              <View style={[styles.flexRow, styles.buttoneSection]}>
+                {isLoading ? (
+                  <Button
+                    icon="stop-circle"
+                    disabled={!isLoading}
+                    mode="contained"
+                    onPress={stopRecording}
+                    color="red"
+                  >
+                    Stop
+                  </Button>
+                ) : (
+                  <Button
+                    icon="microphone"
+                    mode="contained"
+                    onPress={startRecording}
+                    loading={isLoading}
+                    disabled={isLoading}
+                  >
+                    Record
+                  </Button>
+                )}
+                <Button mode="contained" onPress={onMemorizeClick}>
+                  Memorize
+                </Button>
               </View>
             </View>
-            <View style={styles.spacerStyle} />
-            <View style={[styles.flexRow, styles.buttoneSection]}>
-              {isLoading ? (
-                <Button
-                  icon="stop-circle"
-                  disabled={!isLoading}
-                  mode="contained"
-                  onPress={stopRecording}
-                  color="red"
-                >
-                  Stop
-                </Button>
-              ) : (
-                <Button
-                  icon="microphone"
-                  mode="contained"
-                  onPress={startRecording}
-                  loading={isLoading}
-                  disabled={isLoading}
-                >
-                  Record
-                </Button>
-              )}
-              <Button mode="contained" onPress={onMemorizeClick}>
-                Memorize
+          ) : (
+            <View style={styles.uploadFileView}>
+              <Button icon="file" color="black" onPress={pickDocument}>
+                Upload your file
               </Button>
             </View>
+          )}
+          <View style={styles.spacerStyle} />
+          <View>
+            <Pressable>
+              <Card>
+                <Card.Content>
+                  <Title>Translation</Title>
+                  <View>
+                    {isRecording ? (
+                      <Paragraph style={isMemorize ? [styles.blurView] : []}>
+                        {result || "Please Record"}
+                      </Paragraph>
+                    ) : surahLoading ? (
+                      <ActivityIndicator size="large" />
+                    ) : (
+                      apiSurah.map((sur, index) => {
+                        return (
+                          <Text
+                            style={
+                              isMemorize
+                                ? [styles.blurView]
+                                : [styles.noBlurView]
+                            }
+                            key={index}
+                          >
+                            {sur.ayah}
+                          </Text>
+                        );
+                      })
+                    )}
+                  </View>
+                </Card.Content>
+              </Card>
+            </Pressable>
           </View>
-        ) : (
-          <View style={styles.uploadFileView}>
-            <Button icon="file" color="black" onPress={pickDocument}>
-              Upload your file
-            </Button>
-          </View>
-        )}
-        <View style={styles.spacerStyle} />
-        <View>
-          <Card>
-            <Card.Content>
-              <Title>Translation</Title>
-              <View>
-                <Paragraph style={isMemorize ? [styles.blurView] : []}>
-                  {result || "Please Record"}
-                </Paragraph>
-                <Paragraph style={isMemorize ? [styles.blurView] : []}>
-                  {result || "Please Record"}
-                </Paragraph>
-                <Paragraph style={isMemorize ? [styles.blurView] : []}>
-                  {result || "Please Record"}
-                </Paragraph>
-              </View>
-            </Card.Content>
-          </Card>
-        </View>
-      </SafeAreaView>
+        </SafeAreaView>
+      </ScrollView>
     </Surface>
   );
 }
@@ -229,46 +292,19 @@ const styles = StyleSheet.create({
   flexRow: {
     flexDirection: "row",
   },
-  allignCenter: {
-    alignItems: "center",
-    justifyContent: "center",
-    // padding: 8,
-    // marginTop: '1%'
-  },
   uploadFileView: {
     borderColor: "black",
     borderWidth: 0.9,
   },
-  thersholdText: {
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  thersholdDropdown: {
-    justifyContent: "center",
-    alignItems: "center",
-  },
   blurView: {
     backgroundColor: "rgba(192,192,192,0.6)",
     color: "rgba(192,192,192,0.3)",
+    fontSize: 18,
   },
-  buttonText: {
-    color: "white",
-  },
-  stopButton: {
-    backgroundColor: "red",
-    padding: 8,
-    borderRadius: 4,
-    width: "20%",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  recordButton: {
-    backgroundColor: "blue",
-    padding: 8,
-    borderRadius: 4,
-    width: "20%",
-    justifyContent: "center",
-    alignItems: "center",
+  noBlurView: {
+    backgroundColor: "white",
+    color: "black",
+    fontSize: 18,
   },
   spacerStyle: {
     marginBottom: 15,
