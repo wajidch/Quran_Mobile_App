@@ -7,13 +7,14 @@ import {
   Text,
   ScrollView,
   Pressable,
+  FlatList,
 } from "react-native";
-import { BlurView } from "expo-blur";
 import Voice from "@react-native-voice/voice";
 import axios from "axios";
 
 import {
   ActivityIndicator,
+  Avatar,
   Button,
   Card,
   Headline,
@@ -23,16 +24,15 @@ import {
 } from "react-native-paper";
 import { INavigation } from "../interfaces/navigationInterface";
 import DropDown from "react-native-paper-dropdown";
-import { Audio } from "expo-av";
 import { useSelector } from "react-redux";
 import { RecognitionMode } from "../interfaces/recognitionModeEnum";
-import * as DocumentPicker from "expo-document-picker";
 
 const windowWidth = Dimensions.get("window").width;
 const windowHeight = Dimensions.get("window").height;
 
 interface IApiSurah {
   ayah: string;
+  ayahNumber: number;
 }
 function HomeScreen({ navigation }: INavigation) {
   const [result, setResult] = useState("");
@@ -67,12 +67,6 @@ function HomeScreen({ navigation }: INavigation) {
     { label: "3", value: 3 },
     { label: "4", value: 4 },
   ];
-  // const slectedSurah = apiSurah?.map((sur, index) => {
-  //   return (
-
-  //   );
-  // });
-  // const [permission, askPermission, getPermission] = usePermissions(Permissions.AUDIO_RECORDING, { ask: true });
   useEffect(() => {
     Voice.onSpeechStart = onSpeechStartHandler;
     Voice.onSpeechEnd = onSpeechEndHandler;
@@ -93,7 +87,7 @@ function HomeScreen({ navigation }: INavigation) {
           setisRecording(false);
           const apiSurah: IApiSurah[] =
             response.data.result[0]?.surah_details?.map((sur: any) => {
-              return { ayah: sur.ayah };
+              return { ayah: sur.ayah, ayahNumber: sur.n_ayah };
             });
           setSurahLoading(false);
           setApiSurah(apiSurah);
@@ -122,11 +116,6 @@ function HomeScreen({ navigation }: INavigation) {
 
   const startRecording = async () => {
     setLoading(true);
-    await Audio.requestPermissionsAsync();
-    // await Audio.setAudioModeAsync({
-    //   allowsRecordingIOS: true,
-    //   playsInSilentModeIOS: true,
-    // });
     console.log("Starting... recording..");
     try {
       await Voice.start("ar-EG");
@@ -145,7 +134,7 @@ function HomeScreen({ navigation }: INavigation) {
     }
   };
   const pickDocument = async () => {
-    let result = await DocumentPicker.getDocumentAsync({});
+    // let result = await DocumentPicker.getDocumentAsync({});
     console.log(result);
   };
   const onMemorizeClick = () => {
@@ -241,27 +230,37 @@ function HomeScreen({ navigation }: INavigation) {
             <Pressable>
               <Card>
                 <Card.Content>
-                  <Title>Translation</Title>
+                  <Title>{isRecording ? "Translation" : "Surah"}</Title>
                   <View>
                     {isRecording ? (
-                      <Paragraph style={isMemorize ? [styles.blurView] : []}>
-                        {result || "Please Record"}
-                      </Paragraph>
+                      surahLoading ? (
+                        <ActivityIndicator size="large" />
+                      ) : (
+                        <Paragraph style={isMemorize ? [styles.blurView] : []}>
+                          {result || "Please Record"}
+                        </Paragraph>
+                      )
                     ) : surahLoading ? (
                       <ActivityIndicator size="large" />
                     ) : (
                       apiSurah.map((sur, index) => {
                         return (
-                          <Text
-                            style={
-                              isMemorize
-                                ? [styles.blurView]
-                                : [styles.noBlurView]
-                            }
-                            key={index}
-                          >
-                            {sur.ayah}
-                          </Text>
+                          <View key={index} style={styles.list}>
+                            <Text
+                              style={
+                                isMemorize
+                                  ? [styles.blurView]
+                                  : [styles.noBlurView]
+                              }
+                              key={index}
+                            >
+                              {sur.ayah}{" "}
+                              <Avatar.Icon
+                                size={18}
+                                icon="checkbox-blank-circle-outline"
+                              />
+                            </Text>
+                          </View>
                         );
                       })
                     )}
@@ -305,6 +304,9 @@ const styles = StyleSheet.create({
     backgroundColor: "white",
     color: "black",
     fontSize: 18,
+  },
+  list: {
+    marginTop: 30,
   },
   spacerStyle: {
     marginBottom: 15,
