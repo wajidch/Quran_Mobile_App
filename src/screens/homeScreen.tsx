@@ -1,11 +1,18 @@
 import React, { useEffect, useState } from "react";
 import {
   View,
-  StyleSheet,
   SafeAreaView,
+  Dimensions,
+  Text,
+  ScrollView,
+  Pressable,
 } from "react-native";
 import Voice from "@react-native-voice/voice";
+import axios from "axios";
+
 import {
+  ActivityIndicator,
+  Avatar,
   Button,
   Card,
   Headline,
@@ -15,21 +22,31 @@ import {
 } from "react-native-paper";
 import { INavigation } from "../interfaces/navigationInterface";
 import DropDown from "react-native-paper-dropdown";
-import { Audio } from "expo-av";
+import { useSelector } from "react-redux";
+import { RecognitionMode } from "../interfaces/recognitionModeEnum";
+import { thersholdList, surahList, modelList } from "../sample-data/dataList";
+import { saveToStorage, getData } from "../utils/localStorage";
+import { IApiSurah } from "../interfaces/allInterfaces";
+import { styles } from "../stylings/homeScreenStyles";
+const windowWidth = Dimensions.get("window").width;
+const windowHeight = Dimensions.get("window").height;
 
 function HomeScreen({ navigation }: INavigation) {
   const [result, setResult] = useState("");
   const [isLoading, setLoading] = useState(false);
-
+  const [isMemorize, setIsMemorize] = useState(false);
+  const recognitionMode = useSelector((state: any) => state.recognitionMode);
   const [showDropDown, setShowDropDown] = useState(false);
   const [thershold, setThershold] = useState<string>("");
-  const thersholdList = [
-    { label: "1", value: 1 },
-    { label: "2", value: 2 },
-    { label: "3", value: 3 },
-    { label: "4", value: 4 },
-  ];
-  // const [permission, askPermission, getPermission] = usePermissions(Permissions.AUDIO_RECORDING, { ask: true });
+  const [showModelDropDown, setShowModelDropDown] = useState(false);
+  const [model, setModel] = useState<string>("");
+  const [showSurahDropDown, setShowSurahDropDown] = useState(false);
+  const [surah, setSurah] = useState<number>();
+  const [surahLoading, setSurahLoading] = useState(false);
+  const [isRecording, setisRecording] = useState(true);
+  const [apiSurah, setApiSurah] = useState<IApiSurah[]>([]);
+  const [errorMesage, setErrorMessage] = useState("");
+
   useEffect(() => {
     Voice.onSpeechStart = onSpeechStartHandler;
     Voice.onSpeechEnd = onSpeechEndHandler;
@@ -39,6 +56,42 @@ function HomeScreen({ navigation }: INavigation) {
       Voice.destroy().then(Voice.removeAllListeners);
     };
   }, []);
+  React.useEffect(() => {
+    const call = async () => {
+      if (surah && surah != 0) {
+        setisRecording(false);
+        setErrorMessage("");
+        setSurahLoading(true);
+        const storageSurah = await getData(`@surah_${surah}`);
+        if (storageSurah.length < 1) {
+          axios
+            .get(
+              `https://j3meoo7m7l.execute-api.us-east-2.amazonaws.com/dev/quran_data/${surah}`
+            )
+            .then(async function (response) {
+              setisRecording(false);
+              const apiSurah: IApiSurah[] =
+                response.data.result[0]?.surah_details?.map((sur: any) => {
+                  return { ayah: sur.ayah, ayahNumber: sur.n_ayah };
+                });
+              await saveToStorage(`@surah_${surah}`, JSON.stringify(apiSurah));
+              setSurahLoading(false);
+              setApiSurah(apiSurah);
+            })
+            .catch(function (error) {
+              setSurahLoading(false);
+              setErrorMessage("Something went wrong. Please try again.");
+              setApiSurah([]);
+              console.log(error);
+            });
+        } else {
+          setApiSurah(storageSurah);
+          setSurahLoading(false);
+        }
+      }
+    };
+    call();
+  }, [surah]);
 
   const onSpeechStartHandler = (e: any) => {
     console.log("start handler==>>>", e);
@@ -51,17 +104,14 @@ function HomeScreen({ navigation }: INavigation) {
   const onSpeechResultsHandler = (e: any) => {
     let text = e.value[0];
     setResult(text);
+    setisRecording(true);
+    setApiSurah([]);
     console.log("speech result handler", e);
   };
 
   const startRecording = async () => {
     setLoading(true);
-    await Audio.requestPermissionsAsync();
-    // await Audio.setAudioModeAsync({
-    //   allowsRecordingIOS: true,
-    //   playsInSilentModeIOS: true,
-    // });
-    console.log("Starting... recording..");
+    setErrorMessage("");
     try {
       await Voice.start("ar-EG");
     } catch (error) {
@@ -70,7 +120,6 @@ function HomeScreen({ navigation }: INavigation) {
   };
 
   const stopRecording = async () => {
-    console.log("stopping..");
     setLoading(false);
     try {
       await Voice.stop();
@@ -78,130 +127,151 @@ function HomeScreen({ navigation }: INavigation) {
       console.log("Stop error raised", error);
     }
   };
+  const pickDocument = async () => {
+    // let result = await DocumentPicker.getDocumentAsync({});
+    console.log(result);
+  };
+  const onMemorizeClick = () => {
+    setIsMemorize(!isMemorize);
+  };
   return (
     <Surface style={styles.container}>
-      <Headline style={styles.headingText}>Voice Recognition</Headline>
-      <SafeAreaView style={styles.safeContainerStyle}>
-        <DropDown
-          label={"Thershold"}
-          mode={"flat"}
-          visible={showDropDown}
-          showDropDown={() => setShowDropDown(true)}
-          onDismiss={() => setShowDropDown(false)}
-          value={thershold}
-          setValue={setThershold}
-          list={thersholdList}
-        />
-        <View style={styles.spacerStyle} />
-        <View style={styles.buttonsSection}>
-          <Button
-            icon="microphone"
-            mode="contained"
-            onPress={startRecording}
-            loading={isLoading}
-            disabled={isLoading}
-          >
-            Record
-          </Button>
-          <View style={styles.spacerHorizontalStyle} />
-          <Button
-            icon="stop-circle"
-            disabled={!isLoading}
-            mode="contained"
-            onPress={stopRecording}
-            color="red"
-          >
-            Stop
-          </Button>
-          <View style={styles.spacerHorizontalStyle} />
-          <Button icon="check" mode="contained">
-            Analyze
-          </Button>
-        </View>
-        <View style={styles.spacerStyle} />
-        <View>
-          <Card>
-            <Card.Content>
-              <Title>Translation</Title>
-              <Paragraph>{result || "Please Record"}</Paragraph>
-            </Card.Content>
-          </Card>
-        </View>
-      </SafeAreaView>
+      <ScrollView>
+        <Headline style={styles.headingText}>Voice Recognition</Headline>
+
+        <SafeAreaView style={styles.safeContainerStyle}>
+          <View style={[styles.flexRow]}>
+            <View style={styles.flexOne}>
+              <DropDown
+                label={"Thershold"}
+                mode={"flat"}
+                visible={showDropDown}
+                showDropDown={() => setShowDropDown(true)}
+                onDismiss={() => setShowDropDown(false)}
+                value={thershold}
+                setValue={setThershold}
+                list={thersholdList}
+              />
+            </View>
+            <View style={styles.spacerHorizontalStyle} />
+            <View style={styles.flexOne}>
+              <DropDown
+                label={"Model"}
+                mode={"flat"}
+                visible={showModelDropDown}
+                showDropDown={() => setShowModelDropDown(true)}
+                onDismiss={() => setShowModelDropDown(false)}
+                value={model}
+                setValue={setModel}
+                list={modelList}
+              />
+            </View>
+          </View>
+          <View style={styles.spacerStyle} />
+          {recognitionMode === RecognitionMode.Recording ? (
+            <View>
+              <View style={[styles.flexRow]}>
+                <View style={styles.flexOne}>
+                  <DropDown
+                    label={"Surah"}
+                    mode={"flat"}
+                    visible={showSurahDropDown}
+                    showDropDown={() => setShowSurahDropDown(true)}
+                    onDismiss={() => setShowSurahDropDown(false)}
+                    value={surah}
+                    setValue={setSurah}
+                    list={surahList}
+                  />
+                </View>
+              </View>
+              <View style={styles.spacerStyle} />
+              <View style={[styles.flexRow, styles.buttoneSection]}>
+                {isLoading ? (
+                  <Button
+                    icon="stop-circle"
+                    disabled={!isLoading}
+                    mode="contained"
+                    onPress={stopRecording}
+                    color="red"
+                  >
+                    Stop
+                  </Button>
+                ) : (
+                  <Button
+                    icon="microphone"
+                    mode="contained"
+                    onPress={startRecording}
+                    loading={isLoading}
+                    disabled={isLoading}
+                  >
+                    Record
+                  </Button>
+                )}
+                <Button mode="contained" onPress={onMemorizeClick}>
+                  Memorize
+                </Button>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.uploadFileView}>
+              <Button icon="file" color="black" onPress={pickDocument}>
+                Upload your file
+              </Button>
+            </View>
+          )}
+          <View style={styles.spacerStyle} />
+          <View>
+            <Pressable>
+              <Card>
+                <Card.Content>
+                  <Title>{isRecording ? "Translation" : "Surah"}</Title>
+                  <View>
+                    {isRecording ? (
+                      surahLoading ? (
+                        <ActivityIndicator size="large" />
+                      ) : (
+                        <Paragraph style={isMemorize ? [styles.blurView] : []}>
+                          {result || "Please Record"}
+                        </Paragraph>
+                      )
+                    ) : surahLoading ? (
+                      <ActivityIndicator size="large" />
+                    ) : (
+                      <View>
+                        {apiSurah.map((sur, index) => {
+                          return (
+                            <View key={index} style={styles.list}>
+                              <Text
+                                style={
+                                  isMemorize
+                                    ? [styles.blurView]
+                                    : [styles.noBlurView]
+                                }
+                                key={index}
+                              >
+                                {sur.ayah}{" "}
+                                <Avatar.Icon
+                                  size={18}
+                                  icon="checkbox-blank-circle-outline"
+                                />
+                              </Text>
+                            </View>
+                          );
+                        })}
+                        <Paragraph style={styles.errorMessage}>
+                          {errorMesage}
+                        </Paragraph>
+                      </View>
+                    )}
+                  </View>
+                </Card.Content>
+              </Card>
+            </Pressable>
+          </View>
+        </SafeAreaView>
+      </ScrollView>
     </Surface>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  headingText: {
-    alignSelf: "center",
-  },
-  textInputStyle: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    backgroundColor: "white",
-    minHeight: 48,
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    shadowOffset: { width: 0, height: 1 },
-    shadowRadius: 2,
-    elevation: 2,
-    shadowOpacity: 0.4,
-  },
-  buttonsSection: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 8,
-    // marginTop: '1%'
-  },
-  thersholdSection: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  thersholdText: {
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  thersholdDropdown: {
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  buttonText: {
-    color: "white",
-  },
-  stopButton: {
-    backgroundColor: "red",
-    padding: 8,
-    borderRadius: 4,
-    width: "20%",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  recordButton: {
-    backgroundColor: "blue",
-    padding: 8,
-    borderRadius: 4,
-    width: "20%",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  spacerStyle: {
-    marginBottom: 15,
-  },
-  spacerHorizontalStyle: {
-    marginLeft: 5,
-    marginRight: 5,
-  },
-  safeContainerStyle: {
-    flex: 1,
-    margin: 20,
-  },
-});
 
 export default HomeScreen;
