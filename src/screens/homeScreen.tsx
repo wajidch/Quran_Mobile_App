@@ -1,13 +1,11 @@
 import React, { useEffect, useState } from "react";
 import {
   View,
-  StyleSheet,
   SafeAreaView,
   Dimensions,
   Text,
   ScrollView,
   Pressable,
-  FlatList,
 } from "react-native";
 import Voice from "@react-native-voice/voice";
 import axios from "axios";
@@ -26,15 +24,13 @@ import { INavigation } from "../interfaces/navigationInterface";
 import DropDown from "react-native-paper-dropdown";
 import { useSelector } from "react-redux";
 import { RecognitionMode } from "../interfaces/recognitionModeEnum";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-
+import { thersholdList, surahList, modelList } from "../sample-data/dataList";
+import { saveToStorage, getData } from "../utils/localStorage";
+import { IApiSurah } from "../interfaces/allInterfaces";
+import { styles } from "../stylings/homeScreenStyles";
 const windowWidth = Dimensions.get("window").width;
 const windowHeight = Dimensions.get("window").height;
 
-interface IApiSurah {
-  ayah: string;
-  ayahNumber: number;
-}
 function HomeScreen({ navigation }: INavigation) {
   const [result, setResult] = useState("");
   const [isLoading, setLoading] = useState(false);
@@ -50,45 +46,6 @@ function HomeScreen({ navigation }: INavigation) {
   const [isRecording, setisRecording] = useState(true);
   const [apiSurah, setApiSurah] = useState<IApiSurah[]>([]);
   const [errorMesage, setErrorMessage] = useState("");
-  const thersholdList = [
-    { label: "1", value: 1 },
-    { label: "2", value: 2 },
-    { label: "3", value: 3 },
-    { label: "4", value: 4 },
-  ];
-  const modelList = [
-    { label: "Model 1", value: 1 },
-    { label: "Model 2", value: 2 },
-    { label: "Model 3", value: 3 },
-    { label: "Model 4", value: 4 },
-  ];
-  const surahList = [
-    { label: "Select Surah", value: 0 },
-    { label: "1", value: 1 },
-    { label: "2", value: 2 },
-    { label: "3", value: 3 },
-    { label: "4", value: 4 },
-    { label: "5", value: 5 },
-    { label: "6", value: 6 },
-    { label: "7", value: 7 },
-    { label: "8", value: 8 },
-    { label: "9", value: 9 },
-    { label: "10", value: 10 },
-    { label: "11", value: 11 },
-    { label: "12", value: 12 },
-    { label: "13", value: 13 },
-    { label: "14", value: 14 },
-    { label: "15", value: 15 },
-    { label: "16", value: 16 },
-    { label: "17", value: 17 },
-    { label: "18", value: 18 },
-    { label: "19", value: 19 },
-    { label: "20", value: 20 },
-    { label: "21", value: 21 },
-    { label: "22", value: 22 },
-    { label: "23", value: 23 },
-    { label: "24", value: 24 },
-  ];
 
   useEffect(() => {
     Voice.onSpeechStart = onSpeechStartHandler;
@@ -135,21 +92,7 @@ function HomeScreen({ navigation }: INavigation) {
     };
     call();
   }, [surah]);
-  const saveToStorage = async (key: string, value: string) => {
-    try {
-      await AsyncStorage.setItem(key, value);
-    } catch (e) {
-      console.log(e);
-    }
-  };
-  const getData = async (key: string): Promise<IApiSurah[]> => {
-    try {
-      const jsonValue = await AsyncStorage.getItem(key);
-      return jsonValue != null ? JSON.parse(jsonValue) : [];
-    } catch (e) {
-      return [];
-    }
-  };
+
   const onSpeechStartHandler = (e: any) => {
     console.log("start handler==>>>", e);
   };
@@ -315,7 +258,9 @@ function HomeScreen({ navigation }: INavigation) {
                             </View>
                           );
                         })}
-                        <Paragraph style={styles.errorMessage}>{errorMesage}</Paragraph>
+                        <Paragraph style={styles.errorMessage}>
+                          {errorMesage}
+                        </Paragraph>
                       </View>
                     )}
                   </View>
@@ -328,54 +273,5 @@ function HomeScreen({ navigation }: INavigation) {
     </Surface>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  headingText: {
-    alignSelf: "center",
-  },
-  buttoneSection: {
-    justifyContent: "space-between",
-  },
-  flexOne: {
-    flex: 1,
-  },
-  flexRow: {
-    flexDirection: "row",
-  },
-  uploadFileView: {
-    borderColor: "black",
-    borderWidth: 0.9,
-  },
-  blurView: {
-    backgroundColor: "rgba(192,192,192,0.6)",
-    color: "rgba(192,192,192,0.3)",
-    fontSize: 18,
-  },
-  noBlurView: {
-    backgroundColor: "white",
-    color: "black",
-    fontSize: 18,
-  },
-  errorMessage: {
-    color: "red",
-  },
-  list: {
-    marginTop: 30,
-  },
-  spacerStyle: {
-    marginBottom: 15,
-  },
-  spacerHorizontalStyle: {
-    marginLeft: 5,
-    marginRight: 5,
-  },
-  safeContainerStyle: {
-    flex: 1,
-    margin: 20,
-  },
-});
 
 export default HomeScreen;
